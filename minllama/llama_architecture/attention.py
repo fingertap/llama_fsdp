@@ -18,7 +18,7 @@ class Attention(nn.Module):
         self.wv = nn.Linear(hidden_dim, rounded_dims, bias=False)
         self.wo = nn.Linear(rounded_dims, hidden_dim, bias=False)
 
-    def forward(self, x, mask, rope, cache=None):
+    def forward(self, x, rope, mask=None, cache=None):
         # 1. Linear transformation for the inputs to get query, key, value
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
