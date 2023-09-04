@@ -13,14 +13,14 @@ We provide tutorials on the architecture of Llama, distributed training and infe
 
 We support the following functionalities. Don't panic. The code of each part is minimized. Dependency is only the PyTorch. Each part also contains tutorials. The basic parts are highlighted in bold fonts. Have fun!
 
-- [**Llama architecture**](./src/llama_architecture): attention, RoPE, SiLU, and tokenizer.
-- [**Distributed checkpointing**](./src/dist_checkpoint): load and save FSDP state dict.
-- [**Distributed training and inference**](./src/dist_run): low peak memory and computation-communication overlap.
-- [Parameter-efficient finetuning](./src/peft): LoRA and more.
-- [Extend context length](./src/long_context): to enable a longer input for applications such as stateful LLMs.
-- [Extend vocabulary size](./src/large_vocab): to support another language.
-- [Quantization](./src/quantize): to use low-precision floats for lower memory usage and faster computation.
-- [Faster operators](./src/fast_ops): optimized CUDA implementation for better GPU memory bandwidth utilization.
+- [**Llama architecture**](./minllama/llama_architecture): attention, RoPE, SiLU, and tokenizer.
+- [**Distributed checkpointing**](./minllama/dist_checkpoint): load and save FSDP state dict.
+- [**Distributed training and inference**](./minllama/dist_run): low peak memory and computation-communication overlap.
+- [Parameter-efficient finetuning](./minllama/peft): LoRA and more.
+- [Extend context length](./minllama/long_context): to enable a longer input for applications such as stateful LLMs.
+- [Extend vocabulary size](./minllama/large_vocab): to support another language.
+- [Quantization](./minllama/quantize): to use low-precision floats for lower memory usage and faster computation.
+- [Faster operators](./minllama/fast_ops): optimized CUDA implementation for better GPU memory bandwidth utilization.
 
 ## Implement your own application
 
@@ -32,7 +32,7 @@ You can extend by subclassing from `MinimalLlama`. We highly recommend that you 
 ## TODO
 
 - [x] Llama implementation
-- [ ] Distributed loading and saving checkpoints
+- [x] Distributed loading and saving checkpoints
 - [ ] Distributed training and inference
 - [ ] Parameter-efficient finetuning
 - [ ] Extend context length
