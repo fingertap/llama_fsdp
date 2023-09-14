@@ -22,7 +22,7 @@ class DecoderLayer(nn.Module):
         self.attention_norm = RMSNorm(dim, norm_eps)
         self.ffn_norm = RMSNorm(dim, norm_eps)
 
-    def forward(self, x, mask, rope, cache=None):
+    def forward(self, x, rope, mask=None, cache=None):
         x = x + self.attention(self.attention_norm(x), rope, mask, cache)
         x = x + self.feed_forward(self.ffn_norm(x))
         return x
