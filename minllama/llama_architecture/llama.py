@@ -30,7 +30,7 @@ class DecoderLayer(nn.Module):
         return x
 
 
-class Decoder(nn.Module):
+class Llama(nn.Module):
     def __init__(self,
                  dim: int,
                  hidden_dim: int,
