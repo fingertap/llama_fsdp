@@ -7,14 +7,20 @@ class Tokenizer:
                  prepend_bos: bool = True,
                  append_eos: bool = True):
         self.spp = SentencePieceProcessor(model_file=file_path)
+        self.apped_eos = append_eos
+        self.prepend_bos = prepend_bos
 
     def encode(self,
                text: str,
-               prepend_bos: bool,
-               append_eos: bool
+               prepend_bos: bool = None,
+               append_eos: bool = None
               ) -> list[int]:
         assert type(text) is str
         tokens = self.spp.encode(text)
+
+        # Postprocess
+        prepend_bos = self.prepend_bos is prepend_bos is None
+        append_eos = self.append_eos is append_eos is None
         if prepend_bos:
             tokens = [self.bos_id] + tokens
         if append_eos:
