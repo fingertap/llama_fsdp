@@ -8,49 +8,30 @@ class RoPE(nn.Module):
         self.dim = dim
         self.base = base
         self.max_seq_len = max_seq_len
-        self.register_buffer("inv_freq", None)
-        self.register_buffer("_cos_cache", None)
-        self.register_buffer("_sin_cache", None)
 
-    def forward(self, xq, xk):
-        self._lazy_init()
-        # xq, xv: [batch_size, num_heads, seq_len, dim // num_heads]
-        def _rotate_half(x):
-            """Rotates half the hidden dims of the input."""
-            mid_pos = x.shape[-1] // 2
-            x1 = x[..., :mid_pos]
-            x2 = x[..., mid_pos:]
-            return torch.cat((-x2, x1), dim=-1)
+        # NOTE: when init on meta device and call .to_empty() later,
+        #       the buffers will be all zeros. So we will adopt lazy
+        #       init of the RoPE.
+        self.register_buffer("cis", None)
 
-        seq_len = xq.size(2)
-        if seq_len > self.max_seq_len:
-            self.max_seq_len = seq_len
-            self._calc_cis(seq_len)
-
-        cos = self._cos_cache[:seq_len].type_as(xq)[None, None]
-        sin = self._sin_cache[:seq_len].type_as(xq)[None, None]
-
-        xq = (xq * cos) + (_rotate_half(xq) * sin)
-        xk = (xk * cos) + (_rotate_half(xk) * sin)
-
-        return xq, xk
-
-    def _lazy_init(self):
-        # Precalculate the frequency
-        if self.inv_freq is None:
-            inv_freq = 1.0 / (self.base ** (
-                torch.arange(0, self.dim, 2).float() / self.dim
-            ))
-            self.register_buffer("inv_freq", inv_freq)
-        if self._cos_cache is None or self._sin_cache is None:
-            # Calculate the sin and cos (aka, cis)
+    def forward(self, xq, xk, start_pos=0):
+        # Lazy init of cis
+        if self.cis is None:
             self._calc_cis()
 
+        seq_len = xq.shape[1]  # batch_size, seq_len, num_head, head_dim
+        xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))
+        xk_ = torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2))
+        freqs_cis = self.cis[start_pos: start_pos+seq_len].type_as(xq_)
+        freqs_cis = freqs_cis[None, :, None, :]  # 1, seq_len, 1, head_dim
+        xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(3)
+        xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(3)
+        return xq_out.type_as(xq), xk_out.type_as(xk)
+
     def _calc_cis(self):
-        device = self.inv_freq.device
-        t = torch.arange(self.max_seq_len, device=device).type_as(self.inv_freq)
-        freqs = torch.einsum("i,j->ij", t, self.inv_freq)
-        emb = torch.cat((freqs, freqs), dim=-1).to(device)
-        _cos_cache, _sin_cache = emb.cos(), emb.sin()
-        self.register_buffer('_cos_cache', _cos_cache)
-        self.register_buffer('_sin_cache', _sin_cache)
+        freqs = 1.0 / (self.base ** (
+            torch.arange(0, self.dim, 2)[: (self.dim // 2)].float() / self.dim
+        ))
+        t = torch.arange(64, device=freqs.device)  # type: ignore
+        freqs = torch.outer(t, freqs).float()  # type: ignore
+        self.cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
