@@ -12,4 +12,4 @@ class FeedForward(nn.Module):
         self.w3 = nn.Linear(dim, hidden_dim, bias=False)
 
     def forward(self, x):
-        return x + self.w2(nn.functional.silu(self.w1(x)) * self.w3(x))
+        return self.w2(nn.functional.silu(self.w1(x)) * self.w3(x))

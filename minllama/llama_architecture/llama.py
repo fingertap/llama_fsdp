@@ -13,17 +13,19 @@ class DecoderLayer(nn.Module):
                  dim: int,
                  num_heads: int,
                  hidden_dim: int,
+                 rope: RoPE,
                  num_kv_heads: int = None,
                  norm_eps: float = 1e-5):
         nn.Module.__init__(self)
         self.layer_id = layer_id
-        self.attention = Attention(dim, num_heads, num_kv_heads)
+        self.attention = Attention(
+            dim, num_heads, rope=rope, num_kv_heads=num_kv_heads)
         self.feed_forward = FeedForward(dim, hidden_dim)
         self.attention_norm = RMSNorm(dim, norm_eps)
         self.ffn_norm = RMSNorm(dim, norm_eps)
 
-    def forward(self, x, rope, mask=None, cache=None):
-        x = x + self.attention(self.attention_norm(x), rope, mask, cache)
+    def forward(self, x, mask=None):
+        x = x + self.attention(self.attention_norm(x), mask)
         x = x + self.feed_forward(self.ffn_norm(x))
         return x
 
@@ -43,16 +45,18 @@ class Decoder(nn.Module):
         self.tok_embeddings = nn.Embedding(vocab_size, dim)
         self.norm = RMSNorm(dim, norm_eps)
         self.output = nn.Linear(dim, vocab_size, bias=False)
-        self.rope = RoPE(dim // num_heads, max_seq_len * 2, rope_theta)
+
+        rope = RoPE(dim // num_heads, max_seq_len * 2, rope_theta)
 
         # LLama layers
         self.layers = nn.ModuleList([DecoderLayer(
             id_, dim, num_heads, hidden_dim,
+            rope=rope,
             num_kv_heads=num_kv_heads,
             norm_eps=norm_eps
         ) for id_ in range(num_layers)])
 
-    def forward(self, tokens: torch.LongTensor, cache=None):
+    def forward(self, tokens: torch.LongTensor):
         # 1. Get embeddings
         x = self.tok_embeddings(tokens)
         # 2. Calculate masks
@@ -64,6 +68,6 @@ class Decoder(nn.Module):
         ).triu(diagonal=1)
         # 3. Pass through all transformer layers
         for layer in self.layers:
-            x = layer(x, self.rope, mask, cache)
+            x = layer(x, mask)
         # 4. Predict the next word
-        return self.output(self.norm(x))
+        return self.output(self.norm(x)).float()

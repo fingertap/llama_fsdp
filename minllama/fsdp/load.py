@@ -5,7 +5,7 @@ from pathlib import Path
 
 def load_checkpoint(model, path, dtype=torch.bfloat16):
     path = Path(path)
-    model = model.to_empty(device='cpu')  # Lazy memory allocation
+    # model = model.to_empty(device='cpu')  # Lazy memory allocation
 
     sharded_ckpt = Path(path).is_dir()
     if sharded_ckpt:
