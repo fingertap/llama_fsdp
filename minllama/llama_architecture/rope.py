@@ -32,6 +32,6 @@ class RoPE(nn.Module):
         freqs = 1.0 / (self.base ** (
             torch.arange(0, self.dim, 2)[: (self.dim // 2)].float() / self.dim
         ))
-        t = torch.arange(64, device=freqs.device)  # type: ignore
+        t = torch.arange(self.max_seq_len, device=freqs.device)  # type: ignore
         freqs = torch.outer(t, freqs).float()  # type: ignore
         self.cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
