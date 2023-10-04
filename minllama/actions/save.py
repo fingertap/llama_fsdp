@@ -8,12 +8,7 @@ from torch.distributed.fsdp import (
 
 
 def save_checkpoint(model, path):
-    if not isinstance(model, FSDP):
-        state_dict = model.state_dict()
-        torch.save({
-            k: v.cpu() for k, v in state_dict.items()
-        }, path)
-    else:
+    if isinstance(model, FSDP):
         with FSDP.state_dict_type(
             model,
             StateDictType.FULL_STATE_DICT,
@@ -22,3 +17,8 @@ def save_checkpoint(model, path):
             state_dict = model.state_dict()
             if dist.get_rank() == 0:
                 torch.save(state_dict, path)
+    else:
+        state_dict = model.state_dict()
+        torch.save({
+            k: v.cpu() for k, v in state_dict.items()
+        }, path)
