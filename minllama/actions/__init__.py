@@ -1,1 +1,1 @@
-from .load import load_checkpoint
+from .checkpoint import load_checkpoint, save_checkpoint

@@ -27,7 +27,7 @@ class DecoderLayer(nn.Module):
     def forward(self, x, mask=None):
         x = x + self.attention(self.attention_norm(x), mask)
         x = x + self.feed_forward(self.ffn_norm(x))
-        return x
+        return x, mask
 
 
 class Llama(nn.Module):
@@ -68,6 +68,6 @@ class Llama(nn.Module):
         ).triu(diagonal=1)
         # 3. Pass through all transformer layers
         for layer in self.layers:
-            x = layer(x, mask)
+            x, mask = layer(x, mask)
         # 4. Predict the next word
         return self.output(self.norm(x)).float()

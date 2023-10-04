@@ -2,6 +2,7 @@ import torch
 import psutil
 import torch.nn as nn
 
+from tqdm import tqdm
 from pathlib import Path
 
 from minllama.llama_architecture import Llama, Tokenizer
@@ -18,19 +19,21 @@ with torch.device('meta'):
         num_heads=32,
         max_seq_len=2048
     )
-load_checkpoint(model, '/project/llama/7B')
+load_checkpoint(model, '/project/llama-2/llama-2-7b')
 model = model.to('cuda:0')
 tokenizer = Tokenizer('/project/llama/tokenizer.model', append_eos=False)
 
 text = "The meaning of the word \"capital\" is "
 x = tokenizer.encode(text)
 x = torch.tensor(x).to('cuda:0')
-for _ in range(128):
-    output = model(x.unsqueeze(0)).argmax(-1)
-    x = x.tolist()
-    last_token = output[0, -1].item()
-    x.append(last_token)
-    if last_token == tokenizer.eos_id:
-        break
-    x = torch.tensor(x).to('cuda:0')
+model.eval()
+with torch.no_grad():
+    for _ in tqdm(range(128)):
+        output = model(x.unsqueeze(0)).argmax(-1)
+        x = x.tolist()
+        last_token = output[0, -1].item()
+        x.append(last_token)
+        if last_token == tokenizer.eos_id:
+            break
+        x = torch.tensor(x).to('cuda:0')
 print(tokenizer.decode(x.tolist()))

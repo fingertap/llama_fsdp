@@ -1,4 +1,10 @@
 import torch
+import torch.distributed as dist
+from torch.distributed.fsdp import (
+    StateDictType,
+    FullStateDictConfig,
+    FullyShardedDataParallel as FSDP,
+)
 
 from tqdm import tqdm
 from pathlib import Path
@@ -27,7 +33,8 @@ def _load_sharded_checkpoints(model, checkpoints, dtype):
     weights = [torch.load(ckpt, map_location='cpu') for ckpt in checkpoints]
     # NOTE: we will recycle the memories by deleting the used keys
     keys = list(weights[0].keys())
-    for key in tqdm(keys):
+    desc = 'Load params for each layer from sharded checkpoints'
+    for key in tqdm(keys, desc=desc):
         # Dirty fix for unused Llama parameters
         if 'rope.freqs' == key:
             continue
@@ -55,3 +62,20 @@ def load_checkpoint(model, path, dtype=torch.bfloat16):
         model.load_state_dict(torch.load(path, map_location='cpu'))
 
     return model
+
+
+def save_checkpoint(model, path):
+    if isinstance(model, FSDP):
+        with FSDP.state_dict_type(
+            model,
+            StateDictType.FULL_STATE_DICT,
+            FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        ):
+            state_dict = model.state_dict()
+            if dist.get_rank() == 0:
+                torch.save(state_dict, path)
+    else:
+        state_dict = model.state_dict()
+        torch.save({
+            k: v.cpu() for k, v in state_dict.items()
+        }, path)
