@@ -1,39 +1,46 @@
-import torch
-import psutil
-import torch.nn as nn
-
-from tqdm import tqdm
-from pathlib import Path
-
-from minllama.llama_architecture import Llama, Tokenizer
-from minllama.actions import load_checkpoint
-import matplotlib.pyplot as plt
-
-
-with torch.device('meta'):
-    model = Llama(
-        dim=4096,
-        hidden_dim=11008,
-        vocab_size=32000,
-        num_layers=32,
-        num_heads=32,
-        max_seq_len=2048
-    )
-load_checkpoint(model, '/project/llama-2/llama-2-7b')
-model = model.to('cuda:0')
-tokenizer = Tokenizer('/project/llama/tokenizer.model', append_eos=False)
-
-text = "The meaning of the word \"capital\" is "
-x = tokenizer.encode(text)
-x = torch.tensor(x).to('cuda:0')
-model.eval()
-with torch.no_grad():
-    for _ in tqdm(range(128)):
-        output = model(x.unsqueeze(0)).argmax(-1)
-        x = x.tolist()
-        last_token = output[0, -1].item()
-        x.append(last_token)
-        if last_token == tokenizer.eos_id:
-            break
-        x = torch.tensor(x).to('cuda:0')
-print(tokenizer.decode(x.tolist()))
+import os  
+import time  
+import torch  
+import torch.distributed as dist  
+  
+def main():  
+    # Set environment variables and initialize distributed process group  
+    os.environ['MASTER_ADDR'] = 'localhost'  
+    os.environ['MASTER_PORT'] = '12355'  
+    dist.init_process_group("nccl")  
+  
+    rank = dist.get_rank()  
+    world_size = dist.get_world_size()  
+    device = torch.device(f"cuda:{rank}")  
+  
+    # Create random tensors on the GPU  
+    data_send = torch.randn(10000, device=device)  
+    data_recv = torch.zeros(10000, device=device)  
+  
+    # Warm-up communication  
+    for _ in range(10):  
+        for i in range(world_size):  
+            if i != rank:  
+                dist.send(data_send, dst=i)  
+                dist.recv(data_recv, src=i)  
+  
+    # Measure pairwise communication speed  
+    for i in range(world_size):  
+        if i != rank:  
+            start = time.time()  
+            iterations = 16  
+            for _ in range(iterations):  
+                dist.send(data_send, dst=i)  
+                dist.recv(data_recv, src=i)  
+  
+            duration = time.time() - start  
+            data_transferred = data_send.numel() * 4 * 2 * iterations  
+            speed = data_transferred / duration / 1e9  # Convert to GB/s  
+  
+            print(f"GPU {rank} -> GPU {i}: Pairwise communication speed: {speed:.2f} GB/s")  
+  
+    # Cleanup  
+    dist.destroy_process_group()  
+  
+if __name__ == "__main__":  
+    main()  

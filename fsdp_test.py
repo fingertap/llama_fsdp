@@ -2,15 +2,12 @@ import torch
 import torch.nn as nn
 
 from minllama.llama_architecture import Llama, Tokenizer
-from minllama.llama_architecture.llama import DecoderLayer
-from minllama.actions import load_checkpoint
+from minllama.checkpoint import load_checkpoint
 
 from tqdm import tqdm
-from functools import partial
 
 import torch.distributed as dist
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 
 dist.init_process_group()
@@ -32,14 +29,11 @@ if dist.get_rank() == 0:
 tokenizer = Tokenizer('/project/llama/tokenizer.model', append_eos=False)
 
 model = FSDP(model,
-             auto_wrap_policy=partial(
-                 transformer_auto_wrap_policy,
-                 transformer_layer_cls={DecoderLayer}),
+             auto_wrap_policy=model.get_wrap_policy(),
              sync_module_states=True,
              device_id=torch.cuda.current_device(),
              param_init_fn=lambda x: x.to_empty(
                  device=torch.cuda.current_device(), recurse=False),
-             forward_prefetch=True
             )
 
 text = "The meaning of the word \"capital\" is "

@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 
+from functools import partial
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+
 from .rope import RoPE
 from .rms_norm import RMSNorm
 from .attention import Attention
@@ -71,3 +74,10 @@ class Llama(nn.Module):
             x, mask = layer(x, mask)
         # 4. Predict the next word
         return self.output(self.norm(x)).float()
+
+    @staticmethod
+    def get_wrap_policy():
+        return partial(
+            transformer_auto_wrap_policy,
+            transformer_layer_cls={DecoderLayer}
+        )
